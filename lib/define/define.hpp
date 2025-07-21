@@ -48,8 +48,6 @@ namespace user {
         uart_begin();
         pinMode(POWER,OUTPUT);
         pinMode(BACKLIGHT, OUTPUT);
-        pinMode(EXIT, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
     }
 
     void loop(void){

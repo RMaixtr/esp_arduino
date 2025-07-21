@@ -1,3 +1,4 @@
+#pragma once
 #include "Buzzer.hpp"
 
 // 小星星（Twinkle Twinkle Little Star）
@@ -66,3 +67,27 @@ const uint16_t EMO_ERROR_Melody[] = {
     0, 0
 };
 
+// 拟声字母 "V" 的滑音
+const uint16_t V0_Melody[] = {
+    NOTE_A6,  60,   // 爆破起点
+    NOTE_GS6, 60,   // 快速下滑
+    NOTE_G6,  70,
+    0, 50,
+    NOTE_A6,  60,   // 爆破起点
+    NOTE_GS6, 60,   // 快速下滑
+    NOTE_G6,  70,
+    0, 0            // 结束
+};
+
+
+// 拟声字母 "V" 的滑音
+const uint16_t V1_Melody[] = {
+    NOTE_A6,  60,   // 爆破起点
+    NOTE_GS6, 60,   // 快速下滑
+    NOTE_G6,  70,
+    0, 50,
+    NOTE_G6,  60,   // 爆破起点
+    NOTE_FS6, 60,   // 快速下滑
+    NOTE_F6,  70,
+    0, 0            // 结束
+};
