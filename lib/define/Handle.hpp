@@ -22,11 +22,11 @@ void key_begin(void){
 uint8_t key_read(void){
     uint8_t digital = digitalRead(KEY);
     if (touch_check())
-        digital |= 0x02;
-    else
         digital &= 0xfd;
+    else
+        digital |= 0x02;
     
-    return digitalRead(KEY);
+    return digital;
 }
 
 void key_loop(void){
@@ -34,15 +34,16 @@ void key_loop(void){
     Key_tick = millis();
 
     Key_Val = key_read();
-    Key_Down = Key_Val & (Key_Old ^ Key_Val);
-    Key_Up = ~ Key_Val & (Key_Old ^ Key_Val);
+    Key_Up = Key_Val & (Key_Old ^ Key_Val);
+    Key_Down = ~ Key_Val & (Key_Old ^ Key_Val);
     Key_Old = Key_Val;
 }
 
 uint32_t touch_tick = 0;
 bool touch_check(void){
-    return millis() - touch_tick < 20;
+    return (millis() - touch_tick) < 20;
 }
 IRAM_ATTR void touch_interrupt(){
     touch_tick = millis();
+    // printf("touch_interrupt\n");
 }
