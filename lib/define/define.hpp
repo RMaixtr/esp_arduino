@@ -45,9 +45,36 @@ MPU6050_Class mpu6050(0x68, Wire);
 Buzzer buzzer(BUZZER);
 Motor motor(MOTOR);
 
+
+
+void I2C_ClearBus() {
+  pinMode(SDA, INPUT_PULLUP);
+  pinMode(SCL, INPUT_PULLUP);
+  
+  // 发送9个时钟脉冲，强制MPU6050释放SDA
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(SCL, LOW);
+    pinMode(SCL, OUTPUT);
+    delayMicroseconds(5);
+    pinMode(SCL, INPUT_PULLUP);
+    delayMicroseconds(5);
+  }
+  
+  // 发送一个STOP信号
+  digitalWrite(SDA, LOW);
+  pinMode(SDA, OUTPUT);
+  delayMicroseconds(5);
+  pinMode(SCL, OUTPUT);
+  delayMicroseconds(5);
+  pinMode(SDA, INPUT_PULLUP);
+  delayMicroseconds(5);
+}
+
+
 namespace user {
 
     void begin(void){
+        I2C_ClearBus();  // 清除I2C总线，防止MPU6050卡住
         Wire.begin(SDA, SCL);
         mpu6050.begin();
         buzzer.begin();

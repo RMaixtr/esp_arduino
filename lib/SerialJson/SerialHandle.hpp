@@ -105,17 +105,19 @@ void uart_loop(void){
 
     // 解析 IMU 数据 获取 晃动 倒下 事件
     JsonObject imu = doc["imu"].to<JsonObject>();
-    imu["gx"] = mpu6050.raw6.gx;
-    imu["gy"] = mpu6050.raw6.gy;
-    imu["gz"] = mpu6050.raw6.gz;
+    imu["gx"] = mpu6050.gx.rms;
+    imu["gy"] = mpu6050.gy.rms;
+    imu["gz"] = mpu6050.gz.rms;
 
     JsonObject att = imu["att"].to<JsonObject>();
     att["roll"]  = mpu6050.attitude.roll;
     att["pitch"] = mpu6050.attitude.pitch;
     att["yaw"]   = mpu6050.attitude.yaw;
-    if (mpu6050.gx.abs_max > 7000 || mpu6050.gy.abs_max > 7000 || mpu6050.gz.abs_max > 7000 ) {
+    if (mpu6050.gx.rms > 4000 || mpu6050.gy.rms > 4000 || mpu6050.gz.rms > 4000 ) {
+        printf("huang\n");
+    }else if (mpu6050.gx.abs_max > 7000 || mpu6050.gy.abs_max > 7000 || mpu6050.gz.abs_max > 7000 ) {
         printf("shuai\n");
-    }else if (abs(mpu6050.attitude.roll) > 0.7 || abs(mpu6050.attitude.pitch) > 0.7 ) {
+    }else if (abs(mpu6050.attitude.roll) > 1 || abs(mpu6050.attitude.pitch) > 1 ) {
         printf("dao\n");
     }
     // printf("gx:%d, gy:%d, gz:%d\n", mpu6050.gx.abs_max, mpu6050.gy.abs_max, mpu6050.gz.abs_max);

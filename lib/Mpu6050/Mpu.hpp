@@ -29,7 +29,7 @@ public:
     T min = 65535;
     T abs_max = 0;
     T sum = 0;
-    T sum2 = 0;
+    double sum2 = 0;
     T mean;
     T rms;
 
@@ -92,10 +92,8 @@ public:
 
     bool begin(){
         // _wire.begin();
-        mpu.reset();
-        delay(50);
         mpu.initialize();
-        if (mpu.dmpInitialize() != 0) return false;
+        if (mpu.dmpInitialize() != 0) {return false; printf("mpu.dmpInitialize() != 0\n");};
         calibrate(6);
         mpu.setDMPEnabled(true);
         return true;
