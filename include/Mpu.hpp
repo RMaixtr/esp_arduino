@@ -122,9 +122,9 @@ public:
         if (mpu.dmpGetCurrentFIFOPacket(_fifo)) {
             mpu.dmpGetQuaternion(&q, _fifo);
             mpu.dmpGetGravity(&gravity, &q);
-            // 官方签名：dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
         }
+        ypr[2] -= 0.5; // roll 偏移，修正为 0
         yaw.add(ypr[0]);
         pitch.add(ypr[1]);
         roll.add(ypr[2]);

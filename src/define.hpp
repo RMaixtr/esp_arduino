@@ -6,8 +6,8 @@
 #define SCL 5
 #define KEY 0
 #define EXIT 13
-#define MOTOR 2
-#define BACKLIGHT 14
+#define MOTOR 14
+#define BACKLIGHT 2
 #define POWER 16
 #define ADC A0
 #define BUZZER 12

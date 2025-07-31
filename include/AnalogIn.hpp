@@ -5,7 +5,7 @@
 class AnalogIn {
 public:
     explicit AnalogIn(uint8_t pin,
-                      float vRef = 3.3f,
+                      float vRef = 6.0f,
                       uint8_t bits = 10,
                       uint8_t avgSamples = 1)
         : _pin(pin), _vRef(vRef), _bits(bits), _avgSamples(avgSamples) {}

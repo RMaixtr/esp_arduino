@@ -11,7 +11,7 @@ class Motor {
     
         // 非阻塞单音
         void setIntensity(uint8_t intensity, uint32_t ms) {
-            _intensity = constrain(intensity, 0, 255);
+            _intensity = intensity;
             _duration = ms;
             _start    = millis();
             analogWrite(_pin, _intensity);
