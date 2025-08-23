@@ -8,7 +8,7 @@ public:
                                    _melody(nullptr), _idx(0) {}
 
     // 初始化
-    void begin() { pinMode(_pin, OUTPUT); }
+    void begin() { pinMode(_pin, OUTPUT); digitalWrite(_pin, LOW);}
 
     // 非阻塞单音
     void tone(uint16_t freqHz, uint32_t ms) {
@@ -22,6 +22,7 @@ public:
     void noTone() {
         _duration = 0;
         ::noTone(_pin);
+        digitalWrite(_pin, LOW);
     }
 
     // 非阻塞播放旋律

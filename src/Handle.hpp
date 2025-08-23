@@ -19,6 +19,62 @@ void key_begin(void){
     attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
 }
 
+extern SerialJson parser;
+
+struct status
+{
+    uint8_t priority=0;
+    uint8_t code=0;
+    String msg="";
+    uint32_t start_tick=0;
+    uint32_t update_tick=0;
+    uint8_t flag=0;
+    JsonDocument data;
+};
+
+status status_now, status_fall, status_shake, status_up, status_down, status_charge, status_touch;
+
+void status_init(void){
+    status_fall.priority = 1; status_fall.code = 1; status_fall.msg = "fall"; status_fall.data["action"] = "emoji"; status_fall.data["priority"] = 1; status_fall.data["value"] = "cuowu"; status_fall.data["loop"] = 3;
+    status_shake.priority = 2; status_shake.code = 2; status_shake.msg = "shake"; status_shake.data["action"] = "emoji"; status_shake.data["priority"] = 2; status_shake.data["value"] = "cuowu"; status_shake.data["loop"] = 3;
+    status_up.priority = 3; status_up.code = 3; status_up.msg = "up"; status_up.data["action"] = "emoji"; status_up.data["priority"] = 3; status_up.data["value"] = "xiyue"; status_up.data["loop"] = 3;
+    status_down.priority = 3; status_down.code = 4; status_down.msg = "down"; status_down.data["action"] = "emoji"; status_down.data["priority"] = 3; status_down.data["value"] = "nanguo"; status_down.data["loop"] = 3;
+    status_charge.priority = 1; status_charge.code = 5; status_charge.msg = "charge"; status_charge.data["action"] = "emoji"; status_charge.data["priority"] = 1; status_charge.data["value"] = "chongdian"; status_charge.data["loop"] = 3;
+    status_touch.priority = 1; status_touch.code = 6; status_touch.msg = "touch"; status_touch.data["action"] = "emoji"; status_touch.data["priority"] = 1; status_touch.data["value"] = "sikao"; status_touch.data["loop"] = 3;
+}
+
+void status_add(status val={}){
+    if (millis() - status_now.update_tick > 1000){
+        // 恢复默认状态
+        status_now.priority = 0;
+        status_now.code = 0;
+        status_now.msg = "";
+        status_now.start_tick = 0;
+        status_now.update_tick = 0;
+        status_now.flag = 0;
+    }
+    if (status_now.code!=0 && status_now.flag==0 && millis() - val.start_tick > 500){
+        // printf("status: %s \n", status_now.msg.c_str());
+        status_now.flag = 1;
+        parser.send_json(status_now.data);
+    }
+    if (val.code == 0) return;
+    if (val.priority < status_now.priority || status_now.code == 0){
+        status_now.code = val.code;
+        status_now.priority = val.priority;
+        status_now.msg = val.msg;
+        status_now.data = val.data;
+        status_now.flag = 0;
+        status_now.start_tick = millis();
+        status_now.update_tick = millis();
+    }else if (val.code == status_now.code){
+        status_now.update_tick = millis();
+    }
+}
+
+uint8_t take_flag = 0;
+extern AnalogIn adc;
+
 uint8_t key_read(void){
     uint8_t digital = digitalRead(KEY);
     if (touch_check())
@@ -26,24 +82,6 @@ uint8_t key_read(void){
     else
         digital |= 0x02;
 
-    // 晃
-    if (mpu6050.gx.rms > 4000 || mpu6050.gy.rms > 4000 || mpu6050.gz.rms > 4000 ) {
-        digital &= 0xfb;
-    }else{
-        digital |= 0x04;
-    }
-    // 甩
-    if (mpu6050.gx.abs_max > 7000 || mpu6050.gy.abs_max > 7000 || mpu6050.gz.abs_max > 7000 ) {
-        digital &= 0xf7;
-    }else{
-        digital |= 0x08;
-    }
-    // 倒
-    if (abs(mpu6050.attitude.roll) > 0.8 || abs(mpu6050.attitude.pitch) > 0.8 ) {
-        digital &= 0xef;
-    }else{
-        digital |= 0x10;
-    }
     return digital;
 }
 
@@ -55,6 +93,36 @@ void key_loop(void){
     Key_Up = Key_Val & (Key_Old ^ Key_Val);
     Key_Down = ~ Key_Val & (Key_Old ^ Key_Val);
     Key_Old = Key_Val;
+
+    if (Key_Down & 0x02){
+        status_add(status_touch);
+    }
+
+    if (abs(mpu6050.yaw.abs_max) > 1.3) {
+        status_add(status_fall);
+    }else if (mpu6050.gz.rms > 3000) {
+        status_add(status_shake);
+    }else{
+        if (take_flag == 1 && mpu6050.gv.rms < 50) {
+            take_flag = 0;
+            status_add(status_down);
+        }else if (take_flag == 0 && mpu6050.gv.rms > 10000) {
+            take_flag = 1;
+            status_add(status_up);
+        }
+    }
+
+    if (adc.voltage.max - adc.voltage.min > 0.06 && adc.voltage.is_full){
+        if (adc.voltage.is_max_new){
+            status_add(status_charge);
+        }
+    }
+    status_add();
+    // printf("key: %4d, %4d, %4d\n", mpu6050.gx.rms, mpu6050.gy.rms, mpu6050.gz.rms);
+    // printf("key: %d, %d \n", mpu6050.gz.max, mpu6050.gz.min);
+    // printf("rms %d \n", mpu6050.gv.rms);
+    // < 5000 放下 > 10000 拿起
+    // printf("adc %f \n", adc.readVoltage());
 }
 
 uint32_t touch_tick = 0;

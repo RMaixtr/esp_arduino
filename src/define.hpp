@@ -15,18 +15,23 @@
 // val 0-255
 #define backlight_set(val) analogWrite(BACKLIGHT, val)
 
-#define POWER_OFF_INTERVAL 3000
-#define power_on() digitalWrite(POWER, HIGH)
+#define power_on() digitalWrite(POWER, HIGH);backlight_set(255)
+#define power_off() digitalWrite(POWER, LOW);backlight_set(0)
+
+
 bool power_off_flag = false;
 uint32_t power_off_tick = 0;
-void power_off(void){
+uint16_t power_off_interval = 1000;
+bool power_off_jsrpc(const JsonObjectConst &p){
+    power_off_interval = p["val"] | 0;
     power_off_flag = true;
     power_off_tick = millis();
+    return true;
 }
 void power_loop(void){
-    if(!power_off_flag || millis() - power_off_tick < POWER_OFF_INTERVAL) return;
+    if(!power_off_flag || millis() - power_off_tick < power_off_interval) return;
     power_off_flag = false;
-    digitalWrite(POWER, LOW);
+    power_off();
 }
 
 #include "Mpu.hpp"
@@ -47,34 +52,12 @@ SerialJson parser;
 
 #include "Handle.hpp"
 
-void I2C_ClearBus() {
-  pinMode(SDA, INPUT_PULLUP);
-  pinMode(SCL, INPUT_PULLUP);
-  
-  // 发送9个时钟脉冲，强制MPU6050释放SDA
-  for (int i = 0; i < 9; i++) {
-    digitalWrite(SCL, LOW);
-    pinMode(SCL, OUTPUT);
-    delayMicroseconds(5);
-    pinMode(SCL, INPUT_PULLUP);
-    delayMicroseconds(5);
-  }
-  
-  // 发送一个STOP信号
-  digitalWrite(SDA, LOW);
-  pinMode(SDA, OUTPUT);
-  delayMicroseconds(5);
-  pinMode(SCL, OUTPUT);
-  delayMicroseconds(5);
-  pinMode(SDA, INPUT_PULLUP);
-  delayMicroseconds(5);
-}
-
-
 namespace user {
 
     void begin(void){
-        I2C_ClearBus();  // 清除I2C总线，防止MPU6050卡住
+        pinMode(POWER,OUTPUT);
+        pinMode(BACKLIGHT, OUTPUT);
+        power_off();
         Wire.begin(SDA, SCL);
         mpu6050.begin();
         buzzer.begin();
@@ -82,14 +65,15 @@ namespace user {
         parser.begin(Serial);
         parser.add("vibrate", vibrate);
         parser.add("play", play);
+        parser.add("power_off", power_off_jsrpc);
         key_begin();
-        pinMode(POWER,OUTPUT);
-        pinMode(BACKLIGHT, OUTPUT);
+        status_init();
         power_on();
-        backlight_set(255);
+        // buzzer.playMelody(Twinkle_Melody);
     }
 
     void loop(void){
+        adc.loop();
         buzzer.loop();
         motor.loop();
         mpu6050.loop();
