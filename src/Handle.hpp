@@ -10,13 +10,13 @@ uint8_t Key_Up = 0;
 uint8_t Key_Old = Key_Val;
 uint32_t Key_tick = 0;
 
-bool touch_check(void);
-IRAM_ATTR void touch_interrupt();
+// bool touch_check(void);
+// IRAM_ATTR void touch_interrupt();
 
 void key_begin(void){
     pinMode(KEY, INPUT_PULLUP);
     pinMode(EXIT, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
+    // attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
 }
 
 extern SerialJson parser;
@@ -35,12 +35,12 @@ struct status
 status status_now, status_fall, status_shake, status_up, status_down, status_charge, status_touch;
 
 void status_init(void){
-    status_fall.priority = 1; status_fall.code = 1; status_fall.msg = "fall"; status_fall.data["action"] = "emoji"; status_fall.data["priority"] = 1; status_fall.data["value"] = "cuowu"; status_fall.data["loop"] = 3;
-    status_shake.priority = 2; status_shake.code = 2; status_shake.msg = "shake"; status_shake.data["action"] = "emoji"; status_shake.data["priority"] = 2; status_shake.data["value"] = "cuowu"; status_shake.data["loop"] = 3;
-    status_up.priority = 3; status_up.code = 3; status_up.msg = "up"; status_up.data["action"] = "emoji"; status_up.data["priority"] = 3; status_up.data["value"] = "xiyue"; status_up.data["loop"] = 3;
-    status_down.priority = 3; status_down.code = 4; status_down.msg = "down"; status_down.data["action"] = "emoji"; status_down.data["priority"] = 3; status_down.data["value"] = "nanguo"; status_down.data["loop"] = 3;
-    status_charge.priority = 1; status_charge.code = 5; status_charge.msg = "charge"; status_charge.data["action"] = "emoji"; status_charge.data["priority"] = 1; status_charge.data["value"] = "chongdian"; status_charge.data["loop"] = 3;
-    status_touch.priority = 1; status_touch.code = 6; status_touch.msg = "touch"; status_touch.data["action"] = "emoji"; status_touch.data["priority"] = 1; status_touch.data["value"] = "sikao"; status_touch.data["loop"] = 3;
+    status_fall.priority = 1; status_fall.code = 1; status_fall.msg = "fall"; status_fall.data["show_type"] = "fall";
+    status_shake.priority = 2; status_shake.code = 2; status_shake.msg = "shake"; status_shake.data["show_type"] = "shake";
+    status_up.priority = 3; status_up.code = 3; status_up.msg = "up"; status_up.data["show_type"] = "up";
+    status_down.priority = 3; status_down.code = 4; status_down.msg = "down"; status_down.data["show_type"] = "down";
+    status_charge.priority = 1; status_charge.code = 5; status_charge.msg = "charge"; status_charge.data["show_type"] = "charge";
+    status_touch.priority = 1; status_touch.code = 6; status_touch.msg = "touch"; status_touch.data["show_type"] = "touch";
 }
 
 void status_add(status val={}){
@@ -56,7 +56,8 @@ void status_add(status val={}){
     if (status_now.code!=0 && status_now.flag==0 && millis() - val.start_tick > 500){
         // printf("status: %s \n", status_now.msg.c_str());
         status_now.flag = 1;
-        parser.send_json(status_now.data);
+        // parser.send_json(status_now.data);
+        Serial.printf("%s", status_now.msg.c_str());
     }
     if (val.code == 0) return;
     if (val.priority < status_now.priority || status_now.code == 0){
@@ -77,10 +78,10 @@ extern AnalogIn adc;
 
 uint8_t key_read(void){
     uint8_t digital = digitalRead(KEY);
-    if (touch_check())
-        digital &= 0xfd;
-    else
-        digital |= 0x02;
+    // if (touch_check())
+    //     digital &= 0xfd;
+    // else
+    //     digital |= 0x02;
 
     return digital;
 }
@@ -94,16 +95,16 @@ void key_loop(void){
     Key_Down = ~ Key_Val & (Key_Old ^ Key_Val);
     Key_Old = Key_Val;
 
-    if (Key_Down & 0x02){
-        status_add(status_touch);
-    }
+    // if (Key_Down & 0x02){
+    //     status_add(status_touch);
+    // }
 
     if (abs(mpu6050.yaw.abs_max) > 1.3) {
         status_add(status_fall);
     }else if (mpu6050.gz.rms > 3000) {
         status_add(status_shake);
     }else{
-        if (take_flag == 1 && mpu6050.gv.rms < 50) {
+        if (take_flag == 1 && mpu6050.gv.rms < 150) {
             take_flag = 0;
             status_add(status_down);
         }else if (take_flag == 0 && mpu6050.gv.rms > 10000) {
@@ -125,14 +126,14 @@ void key_loop(void){
     // printf("adc %f \n", adc.readVoltage());
 }
 
-uint32_t touch_tick = 0;
-bool touch_check(void){
-    return (millis() - touch_tick) < 20;
-}
-IRAM_ATTR void touch_interrupt(){
-    touch_tick = millis();
-    // printf("touch_interrupt\n");
-}
+// uint32_t touch_tick = 0;
+// bool touch_check(void){
+//     return (millis() - touch_tick) < 20;
+// }
+// IRAM_ATTR void touch_interrupt(){
+//     touch_tick = millis();
+//     // printf("touch_interrupt\n");
+// }
 
 extern Buzzer buzzer;
 extern Motor motor;

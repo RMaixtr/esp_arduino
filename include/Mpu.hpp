@@ -74,11 +74,22 @@ public:
         if (mpu.dmpInitialize() != 0) {return false; printf("mpu.dmpInitialize() != 0\n");};
         calibrate(6);
         mpu.setDMPEnabled(true);
+        // mpu.setMotionDetectionThreshold(0x25);
+        // mpu.setMotionDetectionDuration(0x14);
+        // I2Cdev::writeByte(_addr, MPU6050_RA_CONFIG, 0x04, &_wire);
+        // I2Cdev::writeByte(_addr, MPU6050_RA_ACCEL_CONFIG, 0x1C, &_wire);
+        // I2Cdev::writeByte(_addr, MPU6050_RA_INT_PIN_CFG, 0xBC, &_wire);
+        // mpu.setIntEnabled(0x40);
+
+        // I2Cdev::writeByte(_addr, 0x1F, 0x25, &_wire);
+
         return true;
     }
     void calibrate(uint8_t n) {
         mpu.CalibrateAccel(n);
         mpu.CalibrateGyro(n);
+        // mpu.getXGyroOffset
+
     }      // 加速度/陀螺仪校准
 
     /* 原始 6 轴 */
