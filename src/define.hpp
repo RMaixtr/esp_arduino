@@ -54,23 +54,25 @@ void power_loop(void){
     // pinMode(BUZZER,INPUT);
     // cont_run(g_pcont, NULL);   // 清空 Arduino 调度器队列
     // delay(100);
-    printf("sleep\n");
+    // printf("sleep\n");
     Serial.flush();                // 等待 TX 完成
 
     wifi_fpm_set_sleep_type(LIGHT_SLEEP_T); // set sleep type
     wifi_fpm_open(); // Enables force sleep
-    wifi_enable_gpio_wakeup(EXIT, GPIO_PIN_INTR_POSEDGE); //set wakeup pin
+    
+    gpio_pin_wakeup_enable(GPIO_ID_PIN(KEY), GPIO_PIN_INTR_LOLEVEL); //set wakeup pin
     int i = wifi_fpm_do_sleep(0xFFFFFFF); // Sleep for longest possible time
     delay(5);
-    printf("wake up %d \n", i);
+    // printf("wake up %d \n", i);
     wifi_fpm_close();
-    wifi_disable_gpio_wakeup();
+    gpio_pin_wakeup_disable();
 
     // ESP.deepSleep(0xFFFFFFF); 
     *((volatile uint32_t*) 0x60000900) |= 1;
+    power_on();
 }
 
-#include "Mpu.hpp"
+#include "IMU.hpp"
 #include "AnalogIn.hpp"
 #include "Buzzer.hpp"
 #include "Melodies.hpp"
@@ -79,7 +81,7 @@ void power_loop(void){
 
 AnalogIn adc(ADC);
 
-MPU6050_Class mpu6050(0x68, Wire);
+IMU mpu6050(SDA, SCL);
 
 Buzzer buzzer(BUZZER);
 Motor motor(MOTOR);
@@ -94,8 +96,7 @@ namespace user {
         pinMode(POWER,OUTPUT);
         pinMode(BACKLIGHT, OUTPUT);
         power_off();
-        Wire.begin(SDA, SCL);
-        // mpu6050.begin();
+        mpu6050.begin();
         buzzer.begin();
         motor.begin();
         parser.begin(Serial);
@@ -115,7 +116,7 @@ namespace user {
         adc.loop();
         buzzer.loop();
         motor.loop();
-        // mpu6050.loop();
+        mpu6050.loop();
         parser.loop();
         key_loop();
         power_loop();

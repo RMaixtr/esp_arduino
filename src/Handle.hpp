@@ -10,16 +10,17 @@ uint8_t Key_Up = 0;
 uint8_t Key_Old = Key_Val;
 uint32_t Key_tick = 0;
 
-// bool touch_check(void);
-// IRAM_ATTR void touch_interrupt();
+bool touch_check(void);
+IRAM_ATTR void touch_interrupt();
 
 void key_begin(void){
     pinMode(KEY, INPUT_PULLUP);
     pinMode(EXIT, INPUT_PULLUP);
-    // attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
+    attachInterrupt(digitalPinToInterrupt(EXIT), touch_interrupt, FALLING);
 }
 
 extern SerialJson parser;
+extern AnalogIn adc;
 
 struct status
 {
@@ -58,6 +59,7 @@ void status_add(status val={}){
         status_now.flag = 1;
         // parser.send_json(status_now.data);
         Serial.printf("%s", status_now.msg.c_str());
+        adc._tick2 = millis();
     }
     if (val.code == 0) return;
     if (val.priority < status_now.priority || status_now.code == 0){
@@ -75,13 +77,13 @@ void status_add(status val={}){
 
 uint8_t take_flag = 0;
 extern AnalogIn adc;
+uint8_t digital = 0xff;
 
 uint8_t key_read(void){
-    uint8_t digital = digitalRead(KEY);
-    // if (touch_check())
-    //     digital &= 0xfd;
-    // else
-    //     digital |= 0x02;
+    if (touch_check())
+        digital &= 0xfd;
+    else
+        digital |= 0x02;
 
     return digital;
 }
@@ -95,29 +97,30 @@ void key_loop(void){
     Key_Down = ~ Key_Val & (Key_Old ^ Key_Val);
     Key_Old = Key_Val;
 
-    // if (Key_Down & 0x02){
-    //     status_add(status_touch);
-    // }
+    if (Key_Down & 0x02){
+        status_add(status_touch);
+    }
 
-    if (abs(mpu6050.yaw.abs_max) > 1.3) {
-        status_add(status_fall);
-    }else if (mpu6050.gz.rms > 3000) {
+    // if (abs(mpu6050.yaw.abs_max) > 1.3) {
+    //     status_add(status_fall);
+    // }else 
+    if (mpu6050.gz.rms > 300) {
         status_add(status_shake);
     }else{
-        if (take_flag == 1 && mpu6050.gv.rms < 150) {
+        if (take_flag == 1 && mpu6050.gv.rms < 15) {
             take_flag = 0;
             status_add(status_down);
-        }else if (take_flag == 0 && mpu6050.gv.rms > 10000) {
+        }else if (take_flag == 0 && mpu6050.gv.rms > 1000) {
             take_flag = 1;
             status_add(status_up);
         }
     }
 
-    if (adc.voltage.max - adc.voltage.min > 0.06 && adc.voltage.is_full){
-        if (adc.voltage.is_max_new){
-            status_add(status_charge);
-        }
-    }
+    // if (adc.voltage.max - adc.voltage.min > 0.06 && adc.voltage.is_full){
+    //     if (adc.voltage.is_max_new){
+    //         status_add(status_charge);
+    //     }
+    // }
     status_add();
     // printf("key: %4d, %4d, %4d\n", mpu6050.gx.rms, mpu6050.gy.rms, mpu6050.gz.rms);
     // printf("key: %d, %d \n", mpu6050.gz.max, mpu6050.gz.min);
@@ -126,14 +129,14 @@ void key_loop(void){
     // printf("adc %f \n", adc.readVoltage());
 }
 
-// uint32_t touch_tick = 0;
-// bool touch_check(void){
-//     return (millis() - touch_tick) < 20;
-// }
-// IRAM_ATTR void touch_interrupt(){
-//     touch_tick = millis();
-//     // printf("touch_interrupt\n");
-// }
+uint32_t touch_tick = 0;
+bool touch_check(void){
+    return (millis() - touch_tick) < 20;
+}
+IRAM_ATTR void touch_interrupt(){
+    touch_tick = millis();
+    // printf("touch_interrupt\n");
+}
 
 extern Buzzer buzzer;
 extern Motor motor;

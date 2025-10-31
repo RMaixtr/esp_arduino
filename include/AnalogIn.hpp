@@ -45,22 +45,24 @@ public:
     void loop(){
         if(millis() - _tick < 200) return;
         _tick = millis();
-        readVoltage();
-        // if (voltage.max - voltage.min > 0.06 && voltage.is_full){
-        //     if (voltage.is_max_new){
-        //         printf("voltage max\n");
-        //     } else {
-        //         printf("voltage min\n");
-        //     }
-        // }
-        // printf("%f %f\n",voltage.max - voltage.min, readVoltage());
-        
+        float tmp = readVoltage();
+        if(millis() - _tick2 < 1000) return;
+        _tick2 = millis();
+        uint8_t life = 0;
+        if (tmp >= 4.2) {
+            life = 10;
+        }else if (tmp <= 3.2){
+            life = 0;
+        }else{
+            life = (tmp - 3.2) * 10;
+        }
+        Serial.printf("%d", life);
     }
 
-private:
     uint8_t _pin;
     float   _vRef;
     uint8_t _bits;
     uint8_t _avgSamples;
     uint32_t _tick = 0;
+    uint32_t _tick2 = 0;
 };

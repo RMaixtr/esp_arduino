@@ -1,0 +1,216 @@
+#pragma once
+#include <Arduino.h>
+#include <Wire.h>
+#include <MadgwickAHRS.h>
+#include "SensorQMI8658.hpp"
+#include "Util.hpp"
+
+struct AttitudeRad {
+    float yaw, pitch, roll;   // 单位：弧度
+};
+
+struct AttitudeDeg {
+    float yaw, pitch, roll;   // 单位：度
+};
+
+void I2C_ClearBus() {
+  pinMode(SDA, INPUT_PULLUP);
+  pinMode(SCL, INPUT_PULLUP);
+  
+  // 发送9个时钟脉冲，强制MPU6050释放SDA
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(SCL, LOW);
+    pinMode(SCL, OUTPUT);
+    delayMicroseconds(5);
+    pinMode(SCL, INPUT_PULLUP);
+    delayMicroseconds(5);
+  }
+  
+  // 发送一个STOP信号
+  digitalWrite(SDA, LOW);
+  pinMode(SDA, OUTPUT);
+  delayMicroseconds(5);
+  pinMode(SCL, OUTPUT);
+  delayMicroseconds(5);
+  pinMode(SDA, INPUT_PULLUP);
+  delayMicroseconds(5);
+}
+
+
+class MPU {
+public:
+
+    SensorQMI8658   mpu;
+    uint8_t   _addr;
+    TwoWire   &_wire;
+    uint8_t   _sda;
+    uint8_t   _scl;
+    uint8_t   _fifo[64]{};
+    
+    Madgwick filter;
+
+    // Raw6 raw6;
+    IMUdata acc;
+    IMUdata gyr;
+    AttitudeRad attitude;
+    
+    uint32_t imu_tick = 0;
+    
+    int16_t raw_g[3];
+    float   ypr[3];
+
+    calc_data <int16_t> gx, gy, gz {IMU_LIMIT};
+    calc_data <uint16_t> gv {IMU_LIMIT}; // 速度平方和
+    calc_data <float> yaw, pitch, roll, beta {IMU_LIMIT};
+
+    uint32_t microsPerReading = 1000000 / 25;
+    uint32_t microsPrevious;
+
+    explicit MPU(uint8_t addr = 0x68, uint8_t sda = 21, uint8_t scl = 22, TwoWire *w = &Wire): _addr(addr), _sda(sda), _scl(scl), _wire(*w) {}
+
+    bool begin(){
+        _wire.begin();
+        
+        while (mpu.begin(Wire, _addr, _sda, _scl)==0){
+            I2C_ClearBus();
+        }
+        calibrate();
+        mpu.configAccelerometer(
+            /*
+            * ACC_RANGE_2G
+            * ACC_RANGE_4G
+            * ACC_RANGE_8G
+            * ACC_RANGE_16G
+            * */
+            SensorQMI8658::ACC_RANGE_2G,
+            /*
+            * ACC_ODR_1000H
+            * ACC_ODR_500Hz
+            * ACC_ODR_250Hz
+            * ACC_ODR_125Hz
+            * ACC_ODR_62_5Hz
+            * ACC_ODR_31_25Hz
+            * ACC_ODR_LOWPOWER_128Hz
+            * ACC_ODR_LOWPOWER_21Hz
+            * ACC_ODR_LOWPOWER_11Hz
+            * ACC_ODR_LOWPOWER_3H
+            * */
+            SensorQMI8658::ACC_ODR_1000Hz,
+            /*
+            *  LPF_MODE_0     //2.66% of ODR
+            *  LPF_MODE_1     //3.63% of ODR
+            *  LPF_MODE_2     //5.39% of ODR
+            *  LPF_MODE_3     //13.37% of ODR
+            *  LPF_OFF        // OFF Low-Pass Fitter
+            * */
+            SensorQMI8658::LPF_MODE_0);
+        mpu.configGyroscope(
+            /*
+            * GYR_RANGE_16DPS
+            * GYR_RANGE_32DPS
+            * GYR_RANGE_64DPS
+            * GYR_RANGE_128DPS
+            * GYR_RANGE_256DPS
+            * GYR_RANGE_512DPS
+            * GYR_RANGE_1024DPS
+            * */
+            SensorQMI8658::GYR_RANGE_256DPS,
+            /*
+            * GYR_ODR_7174_4Hz
+            * GYR_ODR_3587_2Hz
+            * GYR_ODR_1793_6Hz
+            * GYR_ODR_896_8Hz
+            * GYR_ODR_448_4Hz
+            * GYR_ODR_224_2Hz
+            * GYR_ODR_112_1Hz
+            * GYR_ODR_56_05Hz
+            * GYR_ODR_28_025H
+            * */
+            SensorQMI8658::GYR_ODR_896_8Hz,
+            /*
+            *  LPF_MODE_0     //2.66% of ODR
+            *  LPF_MODE_1     //3.63% of ODR
+            *  LPF_MODE_2     //5.39% of ODR
+            *  LPF_MODE_3     //13.37% of ODR
+            *  LPF_OFF        // OFF Low-Pass Fitter
+            * */
+            SensorQMI8658::LPF_MODE_3);
+
+        /*
+        * If both the accelerometer and gyroscope sensors are turned on at the same time,
+        * the output frequency will be based on the gyroscope output frequency.
+        * The example configuration is 896.8HZ output frequency,
+        * so the acceleration output frequency is also limited to 896.8HZ
+        * */
+        mpu.enableGyroscope();
+        mpu.enableAccelerometer();
+
+        // Print register configuration information
+        mpu.dumpCtrlRegister();
+
+        // start  filter
+        filter.begin(25);
+        microsPrevious = micros();
+        return true;
+    }
+    void calibrate() {
+        uint16_t gX_gain = 0,  gY_gain = 0,  gZ_gain = 0;
+        mpu.calibration(&gX_gain, &gY_gain, &gZ_gain);
+        // Serial.print("Calibration data ->");
+        // Serial.print("Gyro-X gain : "); Serial.println(gX_gain);
+        // Serial.print("Gyro-Y gain : "); Serial.println(gY_gain);
+        // Serial.print("Gyro-Z gain : "); Serial.println(gZ_gain);
+        // The example only provides a method for writing calibration values
+        mpu.writeCalibration(gX_gain, gY_gain, gZ_gain);
+    }
+
+    /* 原始 6 轴 */
+    bool getRaw6(){
+        if (mpu.getDataReady()) {
+            mpu.getAccelerometer(acc.x, acc.y, acc.z);
+            mpu.getGyroscope(gyr.x, gyr.y, gyr.z);
+            filter.updateIMU(gyr.x, gyr.y, gyr.z, acc.x, acc.y, acc.z);
+        }
+        // gx.add(raw6.gx);
+        // gy.add(raw6.gy);
+        gz.add(gyr.z);
+
+        gv.add(gyr.x*gyr.x + gyr.y*gyr.y + gyr.z*gyr.z);
+
+        // tmp = acos(raw6.gz / tmp) * (180.0 / M_PI);
+        // beta.add(tmp);
+        // printf("%f \n", tmp);
+        return true;
+    }
+
+    /* 姿态：弧度（直接来自 DMP，零拷贝） */
+    AttitudeRad getAttitudeRad(){
+
+        attitude.yaw   = filter.getYaw();
+        attitude.pitch = filter.getPitch();
+        attitude.roll  = filter.getRoll();
+        return attitude;
+    }
+
+
+    /* 姿态：角度（弧度 × 180/π） */
+    AttitudeDeg getAttitudeDeg(){
+        AttitudeRad r = getAttitudeRad();
+        return {r.yaw   * RAD_TO_DEG,
+                r.pitch * RAD_TO_DEG,
+                r.roll  * RAD_TO_DEG};
+    }
+
+    // uint32_t test_tick;
+    void loop(){
+        if (micros() - microsPrevious < microsPerReading) return;
+        microsPrevious += microsPerReading;
+        getRaw6();
+        getAttitudeRad();
+        // printf("%f, %f, %f \n", attitude.yaw, attitude.pitch, attitude.roll);
+        // printf("%d \n", gv.mean);
+        // printf("%d \n", raw6.gz);
+        // printf("%6d, %6d, %6d \n", raw6.ax, raw6.ay, raw6.az);
+    }
+
+};
